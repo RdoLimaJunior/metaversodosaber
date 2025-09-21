@@ -1,0 +1,8 @@
+{
+  "name": "Aventura nos Metaversos do Saber",
+  "description": "Uma aventura interativa onde crianças exploram 'metaversos' de conhecimento sobre temas como História e Geografia do Brasil, com imagens geradas por IA, narração e reconhecimento de voz.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}

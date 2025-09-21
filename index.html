@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aventura na História do Brasil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Muli:wght@400;700&display=swap');
+      body {
+        font-family: 'Muli', sans-serif;
+      }
+      .font-display {
+        font-family: 'Lilita One', cursive;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+      }
+      .animate-shake {
+        animation: shake 0.5s ease-in-out;
+      }
+      @keyframes found-item-anim {
+        0% {
+          transform: scale(1.1);
+          filter: drop-shadow(0 0 5px rgba(255, 255, 150, 0.8));
+          z-index: 50;
+        }
+        50% {
+          transform: scale(1.3) translateY(-20%);
+          filter: drop-shadow(0 0 20px rgba(255, 255, 150, 1));
+          z-index: 50;
+        }
+        100% {
+          transform: scale(1.5) translateY(-30%);
+          filter: drop-shadow(0 0 30px rgba(255, 255, 150, 1));
+          opacity: 0;
+          z-index: 50;
+        }
+      }
+      .found-item {
+        animation: found-item-anim 1.5s ease-in-out forwards;
+      }
+
+      @keyframes wrong-click-anim {
+        0% { transform: scale(0.5); opacity: 1; }
+        100% { transform: scale(1.2); opacity: 0; }
+      }
+      .wrong-click-feedback {
+        position: absolute;
+        color: red;
+        font-size: 2rem;
+        font-weight: bold;
+        pointer-events: none;
+        animation: wrong-click-anim 0.4s ease-out forwards;
+        z-index: 50;
+      }
+      
+      @keyframes piece-appear {
+        from { transform: scale(0.5) rotate(-30deg); opacity: 0; }
+        to { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+      .animate-piece-appear {
+        animation: piece-appear 0.5s ease-out forwards;
+      }
+      
+      @keyframes liftoff {
+        0% { transform: translateY(0) rotate(0); }
+        20% { transform: translateY(-2px) rotate(-1deg); }
+        40% { transform: translateY(-3px) rotate(1deg); }
+        100% { transform: translateY(-150%) rotate(15deg) scale(0.5); opacity: 0; }
+      }
+      .animate-liftoff {
+        animation: liftoff 2s ease-in forwards;
+        animation-delay: 0.5s;
+      }
+      
+      @keyframes glow-blue {
+        from { box-shadow: 0 0 10px 0px rgba(59, 130, 246, 0.5); }
+        to { box-shadow: 0 0 25px 10px rgba(59, 130, 246, 0); }
+      }
+       .animate-glow-blue {
+        animation: glow-blue 0.8s ease-out;
+      }
+      .image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background-color: #f3f4f6; /* gray-100 */
+        border: 2px dashed #d1d5db; /* gray-300 */
+        color: #6b7280; /* gray-500 */
+        text-align: center;
+        padding: 1rem;
+        border-radius: 1rem; /* same as the container */
+      }
+      .image-placeholder svg {
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.5;
+      }
+
+      /* Game Menu Styles */
+      .game-menu-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        z-index: 90;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .game-menu-modal {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 1.5rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        border: 4px solid #f59e0b; /* amber-500 */
+        width: 90%;
+        max-width: 400px;
+        text-align: center;
+      }
+
+      /* Screen Transitions */
+      @keyframes screen-fade-in {
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
+      }
+      .animate-screen-fade-in {
+        animation: screen-fade-in 0.4s ease-out forwards;
+      }
+      
+      /* HUD animation */
+      @keyframes fade-in-fast {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-fast {
+        animation: fade-in-fast 0.3s ease-out forwards;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
+    "react/": "https://esm.sh/react@^19.1.1/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.15.0",
+    "idb": "https://esm.sh/idb@^8.0.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
