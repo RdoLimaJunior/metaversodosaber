@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface EndInteractionProps {
@@ -22,13 +21,13 @@ const EndInteraction: React.FC<EndInteractionProps> = ({ studentName, score, onR
       <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mt-4">
         <button
             onClick={onRestartSubject}
-            className="font-display text-xl px-8 py-4 bg-blue-600 text-white rounded-xl shadow-lg border-b-4 border-blue-800 hover:bg-blue-500 hover:-translate-y-1 transform transition-all duration-150"
+            className="font-display text-xl px-8 py-4 bg-blue-600 text-white rounded-xl shadow-lg border-b-4 border-blue-800 hover:bg-blue-500 hover:-translate-y-0.5 hover:scale-[1.02] transform transition-all duration-100"
         >
             Jogar de Novo
         </button>
         <button
             onClick={onBackToSubjects}
-            className="font-display text-xl px-8 py-4 bg-amber-500 text-white rounded-xl shadow-lg border-b-4 border-amber-700 hover:bg-amber-400 hover:-translate-y-1 transform transition-all duration-150"
+            className="font-display text-xl px-8 py-4 bg-amber-500 text-white rounded-xl shadow-lg border-b-4 border-amber-700 hover:bg-amber-400 hover:-translate-y-0.5 hover:scale-[1.02] transform transition-all duration-100"
         >
             Escolher Outra Matéria
         </button>

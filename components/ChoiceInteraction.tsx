@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { Choice } from '../types';
 
@@ -25,7 +24,7 @@ const ChoiceInteraction: React.FC<ChoiceInteractionProps> = ({ choices, onAdvanc
         <button
           key={index}
           onClick={() => handleChoice(choice.nextNodeId)}
-          className="w-full sm:w-auto font-display text-xl px-8 py-4 bg-blue-600 text-white rounded-xl shadow-lg border-b-4 border-blue-800 hover:bg-blue-500 hover:-translate-y-1 transform transition-all duration-150 focus:outline-none focus:ring-4 focus:ring-blue-300"
+          className="w-full sm:w-auto font-display text-xl px-8 py-4 bg-blue-600 text-white rounded-xl shadow-lg border-b-4 border-blue-800 hover:bg-blue-500 hover:-translate-y-0.5 hover:scale-[1.02] transform transition-all duration-100 focus:outline-none focus:ring-4 focus:ring-blue-300"
         >
           {choice.text}
         </button>
