@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface PlayerHUDProps {
   name: string;
@@ -10,6 +9,16 @@ interface PlayerHUDProps {
 
 const PlayerHUD: React.FC<PlayerHUDProps> = ({ name, sceneTitle, score, avatarUrl }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    // Não anima a pontuação inicial de 0
+    if (score > 0) {
+      setIsAnimating(true);
+      const timer = setTimeout(() => setIsAnimating(false), 400); // Duração deve corresponder à animação CSS
+      return () => clearTimeout(timer);
+    }
+  }, [score]);
 
   const Avatar: React.FC = () => (
     avatarUrl ? (
@@ -37,7 +46,9 @@ const PlayerHUD: React.FC<PlayerHUDProps> = ({ name, sceneTitle, score, avatarUr
                     <p className="text-xs text-amber-200 uppercase tracking-wider truncate">{sceneTitle}</p>
                     <div className="flex items-baseline gap-2">
                         <p className="text-sm uppercase text-gray-300">Pontos:</p>
-                        <p className="font-display text-2xl text-yellow-300 tracking-wider">{score}</p>
+                        <p className={`font-display text-2xl text-yellow-300 tracking-wider ${isAnimating ? 'animate-score-update' : ''}`}>
+                            {score}
+                        </p>
                     </div>
                 </div>
              )}

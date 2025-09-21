@@ -137,6 +137,13 @@
       .animate-screen-fade-in {
         animation: screen-fade-in 0.4s ease-out forwards;
       }
+      @keyframes screen-fade-out {
+        from { opacity: 1; transform: scale(1); }
+        to { opacity: 0; transform: scale(0.98); }
+      }
+      .animate-screen-fade-out {
+        animation: screen-fade-out 0.4s ease-in forwards;
+      }
       
       /* HUD animation */
       @keyframes fade-in-fast {
@@ -145,6 +152,16 @@
       }
       .animate-fade-in-fast {
         animation: fade-in-fast 0.3s ease-out forwards;
+      }
+      
+      /* Score animation */
+      @keyframes score-update-anim {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.4) translateY(-2px); color: #fef08a; } /* yellow-200 */
+        100% { transform: scale(1); }
+      }
+      .animate-score-update {
+        animation: score-update-anim 0.4s ease-out;
       }
     </style>
   <script type="importmap">

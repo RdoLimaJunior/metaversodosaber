@@ -38,8 +38,19 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('placeholder');
   const [isCacheLoaded, setIsCacheLoaded] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const FADE_DURATION = 400; // Corresponde à duração da animação em CSS
 
   const { speak, isSpeaking, cancel } = useTextToSpeech();
+
+  const handleTransition = useCallback((stateUpdateFn: () => void) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+        stateUpdateFn();
+    }, FADE_DURATION);
+  }, [isTransitioning]);
+
 
   // Carrega as imagens do cache do IndexedDB na inicialização
   useEffect(() => {
@@ -80,6 +91,15 @@ const App: React.FC = () => {
       speak(currentStoryNode.text);
     }
   }, [isSceneLoading, currentStoryNode, speak, gameState, currentNodeId]);
+  
+  // Efeito para gerenciar o estado de transição (fade-in)
+  useEffect(() => {
+    if (isTransitioning) {
+        // Após a mudança de estado e a re-renderização com o novo conteúdo,
+        // redefinimos isTransitioning para false, o que acionará a animação de fade-in.
+        setIsTransitioning(false);
+    }
+  }, [currentNodeId, gameState, isTransitioning]);
 
   const preloadImage = useCallback(async (nodeId: string) => {
     if (!currentStory || generatedImages[nodeId] || generatingImages.has(nodeId)) {
@@ -219,7 +239,7 @@ const App: React.FC = () => {
 
     setIsSceneLoading(false);
 
-  }, [currentStory, generatedImages, studentName]);
+  }, [currentStory, generatedImages, studentName, handleTransition]);
 
   useEffect(() => {
     if (gameState === 'playing' && isCacheLoaded) {
@@ -260,7 +280,7 @@ const App: React.FC = () => {
     if (isSpeaking) {
       cancel();
     }
-    setCurrentNodeId(nextNodeId);
+    handleTransition(() => setCurrentNodeId(nextNodeId));
   };
 
   const handleScoreUpdate = (points: number) => {
@@ -271,43 +291,53 @@ const App: React.FC = () => {
     if (isSpeaking) {
       cancel();
     }
-    setGameState('welcome');
-    setCurrentNodeId('start');
-    setStudentName('');
-    setAvatarUrl(null);
-    setError(null);
-    setCurrentStoryNode(null);
-    setCurrentStory(null);
-    setScore(0);
-  }, [cancel, isSpeaking]);
+    handleTransition(() => {
+        setGameState('welcome');
+        setCurrentNodeId('start');
+        setStudentName('');
+        setAvatarUrl(null);
+        setError(null);
+        setCurrentStoryNode(null);
+        setCurrentStory(null);
+        setScore(0);
+    });
+  }, [cancel, isSpeaking, handleTransition]);
   
   const restartSubject = useCallback(() => {
     if (isSpeaking) {
       cancel();
     }
-    setCurrentNodeId('start');
-    setScore(0);
-    setGameState('playing');
-  }, [cancel, isSpeaking]);
+    handleTransition(() => {
+        setCurrentNodeId('start');
+        setScore(0);
+        setGameState('playing');
+    });
+  }, [cancel, isSpeaking, handleTransition]);
 
 
   const handleRegistrationComplete = (name: string) => {
-    setStudentName(name);
-    setGameState('avatar_capture');
+    handleTransition(() => {
+        setStudentName(name);
+        setGameState('avatar_capture');
+    });
   };
 
   const handleAvatarCaptureComplete = (imageDataUrl: string | null) => {
-    setAvatarUrl(imageDataUrl);
-    setGameState('subject_selection');
+    handleTransition(() => {
+        setAvatarUrl(imageDataUrl);
+        setGameState('subject_selection');
+    });
   };
 
   const handleSubjectSelect = (subjectKey: string) => {
     const selectedStory = stories[subjectKey];
     if (selectedStory) {
-      setCurrentStory(selectedStory);
-      setCurrentNodeId('start');
-      setScore(0); // Zera a pontuação para a nova matéria
-      setGameState('playing');
+      handleTransition(() => {
+        setCurrentStory(selectedStory);
+        setCurrentNodeId('start');
+        setScore(0); // Zera a pontuação para a nova matéria
+        setGameState('playing');
+      });
     } else {
       setError(`Aventura de "${subjectKey}" não encontrada.`);
     }
@@ -317,10 +347,12 @@ const App: React.FC = () => {
     if (isSpeaking) {
       cancel();
     }
-    setCurrentStory(null);
-    setCurrentStoryNode(null);
-    setCurrentNodeId('start');
-    setGameState('subject_selection');
+    handleTransition(() => {
+        setCurrentStory(null);
+        setCurrentStoryNode(null);
+        setCurrentNodeId('start');
+        setGameState('subject_selection');
+    });
   };
 
   const clearImageCache = async () => {
@@ -334,6 +366,8 @@ const App: React.FC = () => {
     }
   };
   
+  const screenAnimationClass = isTransitioning ? 'animate-screen-fade-out' : 'animate-screen-fade-in';
+
   if (!isCacheLoaded) {
     return <LoadingScreen message="Carregando aventura..." />;
   }
@@ -354,20 +388,20 @@ const App: React.FC = () => {
   }
   
   if (gameState === 'welcome') {
-      return <div key="welcome" className="animate-screen-fade-in w-full h-full"><WelcomeScreen onStart={() => setGameState('registration')} imageUrl={welcomeImageUrl} /></div>;
+      return <div key="welcome" className={`${screenAnimationClass} w-full h-full`}><WelcomeScreen onStart={() => handleTransition(() => setGameState('registration'))} imageUrl={welcomeImageUrl} /></div>;
   }
   
   if (gameState === 'registration') {
-      return <div key="registration" className="animate-screen-fade-in w-full h-full"><RegistrationScreen onComplete={handleRegistrationComplete} /></div>;
+      return <div key="registration" className={`${screenAnimationClass} w-full h-full`}><RegistrationScreen onComplete={handleRegistrationComplete} /></div>;
   }
   
   if (gameState === 'avatar_capture') {
-      return <div key="avatar_capture" className="animate-screen-fade-in w-full h-full"><AvatarCaptureScreen onComplete={handleAvatarCaptureComplete} /></div>;
+      return <div key="avatar_capture" className={`${screenAnimationClass} w-full h-full`}><AvatarCaptureScreen onComplete={handleAvatarCaptureComplete} /></div>;
   }
 
   if (gameState === 'subject_selection') {
     return (
-      <div className="relative w-full min-h-screen bg-amber-50 flex items-center justify-center p-4 animate-screen-fade-in">
+      <div key="subject_selection" className={`relative w-full min-h-screen bg-amber-50 flex items-center justify-center p-4 ${screenAnimationClass}`}>
         <GameMenu onRestart={restartGame} onBackToSubjects={handleBackToSubjects} />
         <PlayerHUD 
             name={studentName}
@@ -389,7 +423,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="relative w-full min-h-screen bg-amber-50 flex items-center justify-center p-4 animate-screen-fade-in">
+    <div key={`playing_${currentNodeId}`} className={`relative w-full min-h-screen bg-amber-50 flex items-center justify-center p-4 ${screenAnimationClass}`}>
       {gameState === 'playing' && (
         <>
          <GameMenu onRestart={restartGame} onBackToSubjects={handleBackToSubjects} />
