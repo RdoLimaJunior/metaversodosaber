@@ -134,6 +134,7 @@ const AvatarCaptureScreen: React.FC<AvatarCaptureScreenProps> = ({ onComplete })
           console.error("Erro ao aplicar filtro:", err);
           setError(err.message || "A magia falhou! Não consegui criar o avatar. Tente de novo.");
           setActiveFilter('original'); // Volta para o original em caso de erro
+          setFilteredImage(null); // Limpa a imagem filtrada com falha para exibir a original
       } finally {
           setIsFiltering(false);
       }

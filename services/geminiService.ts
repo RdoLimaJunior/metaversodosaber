@@ -1,11 +1,50 @@
+/**
+ * Chama a função serverless do Netlify que atua como um proxy seguro para a API Gemini.
+ * @param payload - O corpo da solicitação a ser enviado para a função.
+ * @returns Uma promessa que resolve para a resposta JSON da função.
+ */
+async function callGeminiFunction(payload: any) {
+  // Implementa um timeout para a solicitação para evitar que o app fique preso.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 segundos
 
-import { GoogleGenAI, Type } from "@google/genai";
+  try {
+    const response = await fetch('/.netlify/functions/gemini', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal, // Passa o sinal do AbortController para o fetch
+    });
 
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable not set");
+    clearTimeout(timeoutId); // Limpa o timeout se a resposta chegar a tempo
+
+    if (!response.ok) {
+      let errorData;
+      try {
+        // Tenta extrair uma mensagem de erro JSON do corpo da resposta
+        errorData = await response.json();
+      } catch (e) {
+        // Se o corpo não for JSON (ex: erro 502, 504), usa o status text
+        throw new Error(`Erro de comunicação com o servidor: ${response.status} ${response.statusText}`);
+      }
+      console.error("Erro da função serverless:", errorData);
+      throw new Error(errorData.error || `O servidor retornou um erro ${response.status}.`);
+    }
+    
+    return response.json();
+
+  } catch (error: any) {
+    clearTimeout(timeoutId); // Garante a limpeza do timeout em caso de erro
+
+    if (error.name === 'AbortError') {
+      console.error('A solicitação para a função serverless expirou (timeout).');
+      throw new Error('A IA está demorando muito para responder. Por favor, tente novamente.');
+    }
+    // Lança novamente outros erros (erros de rede, JSON inválido, etc.)
+    throw error;
+  }
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * Generates an image using the Gemini API based on a prompt.
@@ -14,34 +53,18 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * @returns A promise that resolves to the base64-encoded image URL or 'placeholder' on rate limit errors.
  */
 export async function generateStoryImage(prompt: string, aspectRatio: '16:9' | '1:1' | '9:16' | '4:3' | '3:4' = '16:9'): Promise<string> {
-  console.log(`Generating image for prompt: "${prompt}"`);
+  console.log(`Requesting image for prompt: "${prompt}"`);
   try {
-    const response = await ai.models.generateImages({
-      model: 'imagen-3.0-generate-002',
-      prompt: prompt,
-      config: {
-        numberOfImages: 1,
-        outputMimeType: 'image/jpeg',
-        aspectRatio: aspectRatio,
-      },
+    const { imageUrl } = await callGeminiFunction({
+      action: 'generateImage',
+      prompt,
+      aspectRatio,
     });
-
-    if (response.generatedImages && response.generatedImages.length > 0) {
-      const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-      return `data:image/jpeg;base64,${base64ImageBytes}`;
-    } else {
-      throw new Error("A API não retornou nenhuma imagem.");
-    }
+    return imageUrl;
   } catch (error) {
-    console.error("Erro ao gerar imagem com a API Gemini:", error);
-    // Convert the error to a string to safely check for rate limit messages
-    const errorString = JSON.stringify(error);
-    if (errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('429')) {
-         console.warn("Limite de gerações de imagem atingido. Usando placeholder.");
-         return 'placeholder';
-    }
-    // For other errors, re-throw a more generic error so the app can handle it.
-    throw new Error("Não foi possível desenhar esta parte da história. A API pode estar indisponível.");
+     console.error("Erro ao gerar imagem através da função serverless:", error);
+     // Lançar um erro genérico para a UI tratar
+     throw new Error("Não foi possível desenhar esta parte da história. A IA pode estar indisponível.");
   }
 }
 
@@ -52,17 +75,11 @@ export async function generateStoryImage(prompt: string, aspectRatio: '16:9' | '
  */
 async function describePersonInImage(base64Image: string): Promise<string> {
     try {
-        const imagePart = {
-            inlineData: { mimeType: 'image/jpeg', data: base64Image },
-        };
-        const textPart = { text: "Descreva de forma concisa as características da criança nesta foto para que um artista possa desenhá-la. Inclua cor do cabelo, penteado, cor dos olhos e expressão. Exemplo: 'Uma menina sorridente com cabelo castanho cacheado e olhos escuros'." };
-        
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
+        const { description } = await callGeminiFunction({
+            action: 'describePerson',
+            base64Image,
         });
-
-        return response.text;
+        return description;
     } catch (error) {
         console.error("Erro ao descrever imagem:", error);
         throw new Error("Não foi possível analisar a foto para criar o avatar.");
@@ -87,7 +104,6 @@ export async function generateStyledAvatar(base64Image: string, stylePrompt: str
     const finalPrompt = `Crie um avatar de desenho animado para um jogo infantil. O personagem é: ${description}. O estilo do personagem deve ser de '${stylePrompt}'. O fundo deve ser simples e complementar ao tema. O estilo de arte deve ser uma ilustração de livro de histórias vibrante, colorida e amigável.`;
 
     // 3. Gerar a imagem do avatar
-    // A função generateStoryImage já lida com a chamada à API de imagem e tratamento de erro.
     return generateStoryImage(finalPrompt, '1:1');
 }
 
@@ -101,64 +117,16 @@ export async function generateStyledAvatar(base64Image: string, stylePrompt: str
 export async function locateItemsInImage(base64Image: string, itemsToLocate: string[]): Promise<{ name: string; x: number; y: number; width: number; height: number; }[]> {
     console.log(`Localizing items: ${itemsToLocate.join(', ')}`);
     try {
-        const imagePart = {
-            inlineData: {
-                mimeType: 'image/jpeg',
-                data: base64Image,
-            },
-        };
-        const textPart = {
-            text: `Na imagem fornecida, localize os seguintes itens: ${itemsToLocate.join(', ')}. Forneça as coordenadas (x, y do canto superior esquerdo, largura, altura) de cada item como porcentagens do tamanho total da imagem. Certifique-se de que cada caixa delimitadora seja precisa.`
-        };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            name: {
-                                type: Type.STRING,
-                                description: "O nome do item localizado."
-                            },
-                            x: {
-                                type: Type.NUMBER,
-                                description: "A coordenada X (em porcentagem, de 0 a 100) do canto superior esquerdo da caixa delimitadora."
-                            },
-                            y: {
-                                type: Type.NUMBER,
-                                description: "A coordenada Y (em porcentagem, de 0 a 100) do canto superior esquerdo da caixa delimitadora."
-                            },
-                            width: {
-                                type: Type.NUMBER,
-                                description: "A largura (em porcentagem, de 0 a 100) da caixa delimitadora."
-                            },
-                            height: {
-                                type: Type.NUMBER,
-                                description: "A altura (em porcentagem, de 0 a 100) da caixa delimitadora."
-                            }
-                        },
-                        required: ["name", "x", "y", "width", "height"]
-                    }
-                }
-            }
+        const { locations } = await callGeminiFunction({
+            action: 'locateItems',
+            base64Image,
+            itemsToLocate,
         });
-
-        const jsonString = response.text.trim();
-        const locations = JSON.parse(jsonString);
-        console.log("Localized items successfully:", locations);
         return locations;
-
     } catch (error) {
-        console.error("Erro ao localizar itens na imagem com a API Gemini:", error);
+        console.error("Erro ao localizar itens na imagem:", error);
         let message = "Falha ao analisar a imagem da história.";
-        // Convert the error to a string to safely check for rate limit messages
-        const errorString = JSON.stringify(error);
-        if (errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('429')) {
+        if (error instanceof Error && (error.message.includes('RESOURCE_EXHAUSTED') || error.message.includes('429'))) {
             message = "Limite de análise de imagem atingido. Por favor, tente novamente mais tarde.";
         }
         throw new Error(message);

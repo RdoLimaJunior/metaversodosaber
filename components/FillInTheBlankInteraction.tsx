@@ -26,6 +26,7 @@ const FillInTheBlankInteraction: React.FC<FillInTheBlankInteractionProps> = ({ d
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFeedback(''); // Limpa o feedback anterior antes de validar
     const isAnswerCorrect = answer.trim().toLowerCase() === details.correctAnswer.toLowerCase();
     setIsCorrect(isAnswerCorrect);
 
@@ -52,8 +53,6 @@ const FillInTheBlankInteraction: React.FC<FillInTheBlankInteractionProps> = ({ d
           value={answer}
           onChange={(e) => {
             setAnswer(e.target.value);
-            setIsCorrect(null);
-            setFeedback('');
           }}
           className={`font-display text-center w-32 md:w-48 px-3 py-2 border-b-4 rounded-t-md transition-colors duration-300
             ${isCorrect === true ? 'border-green-500 bg-green-100' : ''}

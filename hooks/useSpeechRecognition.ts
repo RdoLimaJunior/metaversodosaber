@@ -71,7 +71,15 @@ export const useSpeechRecognition = (): SpeechRecognitionHook => {
     };
 
     recognition.onerror = (event) => {
-      setError(`Erro no reconhecimento de voz: ${event.error}`);
+      let errorMessage = `Erro no reconhecimento de voz: ${event.error}`;
+      if (event.error === 'not-allowed') {
+        errorMessage = 'O acesso ao microfone foi negado. Por favor, permita o acesso para usar esta função.';
+      } else if (event.error === 'no-speech') {
+        errorMessage = 'Não consegui ouvir nada. Tente falar um pouco mais alto.';
+      } else if (event.error === 'network') {
+          errorMessage = 'Problema de rede. O reconhecimento de voz precisa de internet.';
+      }
+      setError(errorMessage);
       setIsListening(false);
     };
 

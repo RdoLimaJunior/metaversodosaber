@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { stories } from './story';
 import type { StoryNodeData, BoundingBox } from './types';
@@ -32,17 +31,17 @@ const App: React.FC = () => {
   
   const [generatedImages, setGeneratedImages] = useState<Record<string, string>>({});
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
-  const [isCacheLoaded, setIsCacheLoaded] = useState(false);
-
+  
   // Estado da UI
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSceneLoading, setIsSceneLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState('Carregando aventura...');
   const [error, setError] = useState<string | null>(null);
-  const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('');
-  
+  const [welcomeImageUrl, setWelcomeImageUrl] = useState<string>('placeholder');
+  const [isCacheLoaded, setIsCacheLoaded] = useState(false);
+
   const { speak, isSpeaking, cancel } = useTextToSpeech();
 
-  // Carrega as imagens do cache do IndexedDB no início
+  // Carrega as imagens do cache do IndexedDB na inicialização
   useEffect(() => {
     const loadCache = async () => {
         const cachedImages = await getAllImages();
@@ -52,33 +51,35 @@ const App: React.FC = () => {
     loadCache();
   }, []);
   
-  // Gera a imagem de boas-vindas no carregamento inicial
+  // Gera a imagem de boas-vindas em segundo plano, de forma não-bloqueante
   useEffect(() => {
-    const generateWelcomeImage = async () => {
-        setIsLoading(true);
-        setLoadingMessage('Criando um portal no tempo...');
+    const generateWelcomeImageInBackground = async () => {
+        console.log("Tentando gerar imagem de boas-vindas em segundo plano...");
         try {
             const prompt = "A futuristic and vibrant digital landscape, representing a 'cyberspace' or 'metaverse' hub. In the center, there's a child explorer looking at several glowing portals, each portal hinting at a different subject like history (ancient scrolls and pyramids), geography (floating globes), math (glowing numbers), and science (DNA strands and atoms). The style should be a colorful, exciting children's storybook illustration with a high-tech feel, 16:9 aspect ratio.";
             const imageUrl = await generateStoryImage(prompt);
-            setWelcomeImageUrl(imageUrl);
+            // Só atualiza se for uma imagem real, não o placeholder de fallback da API
+            if (imageUrl && imageUrl !== 'placeholder') {
+                setWelcomeImageUrl(imageUrl);
+                console.log("Imagem de boas-vindas gerada e atualizada com sucesso.");
+            }
         } catch(err) {
-            console.error("Erro ao gerar imagem de boas-vindas:", err);
-            setError("Não foi possível criar o portal do tempo. Tente recarregar a página.");
-        } finally {
-            setIsLoading(false);
+            console.error("Falha ao gerar imagem de boas-vindas em segundo plano. O placeholder será mantido.", err);
         }
     };
-    if (gameState === 'welcome' && !welcomeImageUrl) {
-      generateWelcomeImage();
+
+    if (gameState === 'welcome') {
+      generateWelcomeImageInBackground();
     }
-  }, [gameState, welcomeImageUrl]);
+  }, [gameState]);
+
 
   // Efeito de narração
   useEffect(() => {
-    if (!isLoading && currentStoryNode && gameState === 'playing' && currentNodeId !== 'start' && currentStoryNode.interactionType !== InteractionType.End) {
+    if (!isSceneLoading && currentStoryNode && gameState === 'playing' && currentNodeId !== 'start' && currentStoryNode.interactionType !== InteractionType.End) {
       speak(currentStoryNode.text);
     }
-  }, [isLoading, currentStoryNode, speak, gameState, currentNodeId]);
+  }, [isSceneLoading, currentStoryNode, speak, gameState, currentNodeId]);
 
   const preloadImage = useCallback(async (nodeId: string) => {
     if (!currentStory || generatedImages[nodeId] || generatingImages.has(nodeId)) {
@@ -133,17 +134,18 @@ const App: React.FC = () => {
 
     let imageUrl = generatedImages[nodeId];
     if (!imageUrl) {
-      setIsLoading(true);
+      setIsSceneLoading(true);
       setLoadingMessage('Desenhando o cenário com magia...');
       try {
         imageUrl = await generateStoryImage(personalizedNode.imagePrompt);
         await storeImage(nodeId, imageUrl);
         setGeneratedImages(prev => ({ ...prev, [nodeId]: imageUrl }));
       } catch (err: any) {
-        console.error("Erro ao gerar imagem:", err);
-        setError(err.message || "Não consegui desenhar esta parte da história. Vamos tentar a próxima.");
-        setIsLoading(false);
-        return;
+        console.error(`Erro ao gerar imagem para o nó ${nodeId}:`, err);
+        // Em caso de falha, use um placeholder para não interromper o jogo.
+        imageUrl = 'placeholder'; 
+        // Não armazena o placeholder no cache permanente, mas o define para a sessão atual.
+        setGeneratedImages(prev => ({ ...prev, [nodeId]: imageUrl }));
       }
     }
     
@@ -164,11 +166,11 @@ const App: React.FC = () => {
                 personalizedBypassNode.text = personalizedBypassNode.text.replace(/{name}/g, studentName);
             }
             setCurrentStoryNode(personalizedBypassNode);
-            setIsLoading(false);
+            setIsSceneLoading(false);
             return;
         }
 
-        setIsLoading(true);
+        setIsSceneLoading(true);
         setLoadingMessage('Analisando a cena...');
         try {
             const base64Image = imageUrl.split(',')[1];
@@ -195,23 +197,27 @@ const App: React.FC = () => {
 
     // Se for uma interação de matemática, gera as peças
     if (node.interactionType === InteractionType.DragAndDropMath && node.dragAndDropMath) {
-        setIsLoading(true);
+        setIsSceneLoading(true);
         setLoadingMessage('Fabricando peças da sua espaçonave...');
         try {
             const piecePrompts = node.dragAndDropMath.piecePrompts;
             const pieceImagePromises = piecePrompts.map(prompt => generateStoryImage(prompt, '1:1'));
-            const generatedPieces = await Promise.all(pieceImagePromises);
+            // Usa allSettled para lidar com falhas individuais na geração de peças.
+            const results = await Promise.allSettled(pieceImagePromises);
+            const generatedPieces = results.map(result => 
+                result.status === 'fulfilled' ? result.value : 'placeholder'
+            );
             setInteractiveElementImages(generatedPieces);
-        } catch (err: any) {
-             console.error("Erro ao gerar peças da nave:", err);
-             setError(err.message || "Não consegui fabricar as peças da nave. Vamos tentar outra coisa.");
-             handleAdvance(node.dragAndDropMath.nextNodeId);
-             setIsLoading(false);
+        } catch (err: any) { // Este catch é agora para erros inesperados
+             console.error("Erro inesperado ao gerar peças da nave:", err);
+             setError("Ocorreu um problema inesperado na fabricação das peças. Vamos tentar a próxima parte.");
+             handleAdvance(node.dragAndDropMath.nextNodeId); // Mantém o fallback para pular
+             setIsSceneLoading(false);
              return;
         }
     }
 
-    setIsLoading(false);
+    setIsSceneLoading(false);
 
   }, [currentStory, generatedImages, studentName]);
 
@@ -223,7 +229,7 @@ const App: React.FC = () => {
 
   // Efeito de pré-carregamento
   useEffect(() => {
-    if (!currentStoryNode || isLoading) {
+    if (!currentStoryNode || isSceneLoading) {
       return;
     }
 
@@ -248,7 +254,7 @@ const App: React.FC = () => {
     if (nextNodeIdsToPreload.length > 0) {
       preloadImage(nextNodeIdsToPreload[0]);
     }
-  }, [currentStoryNode, isLoading, preloadImage]);
+  }, [currentStoryNode, isSceneLoading, preloadImage]);
 
   const handleAdvance = (nextNodeId: string) => {
     if (isSpeaking) {
@@ -272,7 +278,6 @@ const App: React.FC = () => {
     setError(null);
     setCurrentStoryNode(null);
     setCurrentStory(null);
-    setIsLoading(false);
     setScore(0);
   }, [cancel, isSpeaking]);
   
@@ -328,6 +333,10 @@ const App: React.FC = () => {
         alert("Ocorreu um erro ao limpar o cache de imagens.");
     }
   };
+  
+  if (!isCacheLoaded) {
+    return <LoadingScreen message="Carregando aventura..." />;
+  }
 
   if (error) {
     return (
@@ -345,9 +354,6 @@ const App: React.FC = () => {
   }
   
   if (gameState === 'welcome') {
-      if (isLoading || !welcomeImageUrl || !isCacheLoaded) {
-          return <LoadingScreen message={loadingMessage} />;
-      }
       return <div key="welcome" className="animate-screen-fade-in w-full h-full"><WelcomeScreen onStart={() => setGameState('registration')} imageUrl={welcomeImageUrl} /></div>;
   }
   
@@ -378,7 +384,7 @@ const App: React.FC = () => {
     );
   }
   
-  if (!isCacheLoaded || isLoading || !currentStoryNode) {
+  if (isSceneLoading || !currentStoryNode) {
     return <LoadingScreen message={loadingMessage} />;
   }
 
